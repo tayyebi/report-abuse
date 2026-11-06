@@ -1,0 +1,43 @@
+Subject: Phishing abuse report — {{target}} — ticket {{ticket_number}}
+
+To the network abuse team,
+
+We are reporting a phishing site that is being hosted or served from your
+network. The site impersonates a trusted brand and is designed to harvest
+account credentials from visitors.
+
+Report details
+--------------
+Ticket reference : {{ticket_number}}
+Feedback type    : {{feedback_type}} (RFC 5965)
+Reported URL     : {{url}}
+Domain           : {{domain}}
+IP address       : {{ip}}
+Observed at      : {{date}}
+
+Description from the reporter
+-----------------------------
+{{description}}
+
+Technical details
+-----------------
+{{enrichment}}
+
+Attached evidence
+-----------------
+{{evidence_list}}
+
+What we are asking for
+----------------------
+Please investigate this resource and take the appropriate action under your
+acceptable use policy (typically suspension of the hosting account and/or
+null-routing of the domain). If the resource is not under your control,
+please let us know so that we can direct the report to the correct party.
+
+We are happy to provide additional headers or screenshots on request. Please
+reply to this message keeping the ticket reference intact.
+
+Kind regards,
+{{org}}
+{{org_email}}
+{{ticket_url}}

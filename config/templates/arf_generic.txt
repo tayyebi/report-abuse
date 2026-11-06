@@ -1,0 +1,38 @@
+Subject: Abuse report — {{abuse_type_label}} — {{target}} — ticket {{ticket_number}}
+
+To the network abuse team,
+
+We are reporting abusive activity that involves a resource on your network.
+
+Report details
+--------------
+Ticket reference : {{ticket_number}}
+Reported type    : {{abuse_type_label}}
+Feedback type    : {{feedback_type}} (RFC 5965)
+Reported URL     : {{url}}
+Domain           : {{domain}}
+IP address       : {{ip}}
+Observed at      : {{date}}
+
+Description from the reporter
+-----------------------------
+{{description}}
+
+Technical details
+-----------------
+{{enrichment}}
+
+Attached evidence
+-----------------
+{{evidence_list}}
+
+What we are asking for
+----------------------
+Please review the attached information and take whatever action is appropriate
+under your acceptable use policy. If this report is misdirected, a short reply
+telling us so would be appreciated.
+
+Kind regards,
+{{org}}
+{{org_email}}
+{{ticket_url}}

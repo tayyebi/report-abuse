@@ -1,0 +1,40 @@
+Subject: Spam / unsolicited bulk email report — {{target}} — ticket {{ticket_number}}
+
+To the network abuse team,
+
+We are forwarding a report about unsolicited bulk email (spam) originating
+from, or advertising resources hosted on, your network.
+
+Report details
+--------------
+Ticket reference : {{ticket_number}}
+Feedback type    : {{feedback_type}} (RFC 5965)
+Reported URL     : {{url}}
+Domain           : {{domain}}
+IP address       : {{ip}}
+Observed at      : {{date}}
+
+Description from the reporter
+-----------------------------
+{{description}}
+
+Technical details
+-----------------
+{{enrichment}}
+
+Full message headers, where provided, are attached to this report so that the
+sending infrastructure can be identified.
+
+Attached evidence
+-----------------
+{{evidence_list}}
+
+What we are asking for
+----------------------
+Please confirm whether the sending host is part of your network and take the
+action required by your acceptable use policy.
+
+Kind regards,
+{{org}}
+{{org_email}}
+{{ticket_url}}

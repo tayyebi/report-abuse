@@ -1,0 +1,18 @@
+Subject: [{{ticket_number}}] Your abuse report has been resolved
+
+Hello {{reporter_name}},
+
+Your report {{ticket_number}} ({{abuse_type_label}} — {{target}}) has been
+marked as resolved.
+
+Resolution note
+---------------
+{{resolution}}
+
+Thank you for helping keep the network safe. If you notice the abusive content
+again, please submit a new report.
+
+Status page: {{ticket_url}}
+
+Kind regards,
+{{org}}

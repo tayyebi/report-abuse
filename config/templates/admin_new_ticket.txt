@@ -1,0 +1,16 @@
+Subject: [{{ticket_number}}] New {{abuse_type_label}} report — {{target}}
+
+A new abuse report just arrived through the {{source}} channel.
+
+Ticket   : {{ticket_number}}
+Type     : {{abuse_type_label}}
+Target   : {{target}}
+Reporter : {{reporter_email}}
+Received : {{date}}
+
+Description
+-----------
+{{description}}
+
+Open the ticket:
+{{admin_url}}
