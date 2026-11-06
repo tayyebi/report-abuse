@@ -1,0 +1,18 @@
+Subject: [{{ticket_number}}] Your abuse report was forwarded to the provider
+
+Hello {{reporter_name}},
+
+An update on your report {{ticket_number}} ({{abuse_type_label}} — {{target}}).
+
+We have forwarded a formal abuse report to:
+
+  {{recipient}}
+
+The report included the evidence you supplied and the technical details we
+gathered about the target. We will let you know as soon as the provider
+responds or the case is resolved.
+
+Status page: {{ticket_url}}
+
+Kind regards,
+{{org}}

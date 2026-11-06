@@ -1,0 +1,14 @@
+# Keep the image lean and free of secrets.
+.git
+.gitignore
+.env
+.env.local
+storage
+tests
+docker-compose.yml
+README.md
+LICENSE
+node_modules
+vendor
+*.log
+.DS_Store

@@ -1,0 +1,20 @@
+# Shared-hosting fallback: when the document root points at the project root
+# instead of ./public, forward everything into public/ and block internals.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Never serve application internals or secrets.
+    RewriteRule ^(config|database|src|storage|bin|docker)/ - [F,L]
+    RewriteRule ^\.env - [F,L]
+    RewriteRule ^(\.git|composer\.(json|lock)|Dockerfile|docker-compose\.yml|README\.md) - [F,L]
+
+    # Already inside public/?
+    RewriteCond %{REQUEST_URI} ^/public/
+    RewriteRule ^ - [L]
+
+    # Everything else → public/index.php
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+Options -Indexes

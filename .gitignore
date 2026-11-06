@@ -1,0 +1,21 @@
+# Local configuration / secrets
+.env
+.env.local
+
+# Runtime storage (uploads, outbox, logs) — keep the directory, ignore content
+storage/*
+!storage/.gitkeep
+
+# Composer (this project intentionally has no runtime dependencies)
+/vendor/
+composer.lock
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log
+
+# Test scratch
+/tests/tmp/

@@ -1,0 +1,30 @@
+Subject: [{{ticket_number}}] We received your abuse report
+
+Hello {{reporter_name}},
+
+Thank you for your report. It has been registered with the reference
+{{ticket_number}}.
+
+Summary of what you submitted
+-----------------------------
+Type     : {{abuse_type_label}}
+Target   : {{target}}
+URL      : {{url}}
+Received : {{date}}
+
+You can follow the status of your report at any time using this private link
+(please do not share it):
+
+{{ticket_url}}
+
+What happens next
+-----------------
+A human analyst reviews every submission. If the reported resource belongs to
+a hosting provider or network we can reach, we forward a formal abuse report
+(including the evidence you supplied) to their abuse desk and track the reply.
+
+You will receive another email when the report has been sent and when the
+ticket is resolved.
+
+Kind regards,
+{{org}}

@@ -1,0 +1,232 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Small CLI for operations: migrations, seeding, admin management, mail tests.
+ *
+ * Usage: php bin/console <command> [arguments]
+ */
+
+use App\Core\Config;
+use App\Core\Database;
+use App\Models\Admin;
+use App\Models\LoginCode;
+use App\Services\ImapClient;
+use App\Services\MailboxProcessor;
+use App\Services\SmtpMailer;
+use App\Services\TicketService;
+
+require dirname(__DIR__) . '/src/bootstrap.php';
+
+$argv = $_SERVER['argv'] ?? [];
+$command = $argv[1] ?? 'help';
+$args = array_slice($argv, 2);
+
+$out = static function (string $message): void {
+    echo $message . PHP_EOL;
+};
+$err = static function (string $message): void {
+    file_put_contents('php://stderr', $message . PHP_EOL);
+};
+
+try {
+    switch ($command) {
+        case 'migrate':
+            migrate(databaseConnection(), in_array('--fresh', $args, true), $out);
+            break;
+
+        case 'seed':
+            $email = $args[0] ?? (string) Config::get('app.auth.seed_admin_email', '');
+            $admin = Admin::seedDefault($email);
+            if ($admin === null) {
+                $err('No valid admin e-mail configured. Set ADMIN_EMAIL.');
+                exit(1);
+            }
+            $out('Seeded administrator: ' . $admin->email() . ' (id ' . $admin->id() . ')');
+            $out('Sign-in is passwordless: a one-time code is mailed to this address.');
+            break;
+
+        case 'admin:add':
+            $email = $args[0] ?? '';
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $err('Usage: php bin/console admin:add <email>');
+                exit(1);
+            }
+            $admin = Admin::createAdmin($email);
+            $out('Administrator ready: ' . $admin->email() . ' (id ' . $admin->id() . ')');
+            break;
+
+        case 'admin:list':
+            $admins = Admin::allAdmins();
+            if ($admins === []) {
+                $out('No administrators yet. Run: php bin/console seed');
+                break;
+            }
+            $out(sprintf('%-4s %-40s %-9s %s', 'ID', 'E-MAIL', 'ACTIVE', 'LAST LOGIN'));
+            foreach ($admins as $admin) {
+                $out(sprintf(
+                    '%-4d %-40s %-9s %s',
+                    (int) $admin->id(),
+                    $admin->email(),
+                    $admin->isActive() ? 'yes' : 'no',
+                    (string) ($admin->get('last_login_at') ?? 'never')
+                ));
+            }
+            break;
+
+        case 'admin:disable':
+        case 'admin:enable':
+            $email = $args[0] ?? '';
+            $admin = Admin::findByEmail($email);
+            if ($admin === null) {
+                $err('Unknown administrator: ' . $email);
+                exit(1);
+            }
+            $admin->setActive($command === 'admin:enable');
+            $out($admin->email() . ' is now ' . ($command === 'admin:enable' ? 'enabled' : 'disabled') . '.');
+            break;
+
+        case 'mail:test':
+            $to = $args[0] ?? defaultMailRecipient();
+            if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+                $err('Usage: php bin/console mail:test <recipient@example.org>');
+                exit(1);
+            }
+            $mailer = new SmtpMailer();
+            $result = $mailer->sendText($to, 'Abuse Report Desk test message', "This is a test message.\n\nSent: " . date('c'));
+            if ($result['ok']) {
+                $out('Message accepted (' . $result['transport'] . ') for ' . $to . ($result['stored_path'] ? ' → ' . $result['stored_path'] : ''));
+            } else {
+                $err('Send failed: ' . (string) $result['error']);
+                exit(1);
+            }
+            break;
+
+        case 'mail:check':
+            $processor = new MailboxProcessor();
+            foreach (['intake' => $processor->checkIntake(true), 'responses' => $processor->checkResponses(true)] as $label => $result) {
+                $out(sprintf(
+                    '%s: ok=%s fetched=%d new=%d skipped=%d%s',
+                    $label,
+                    $result['ok'] ? 'yes' : 'no',
+                    $result['fetched'],
+                    $result['created'],
+                    $result['skipped'],
+                    $result['errors'] === [] ? '' : ' errors: ' . implode('; ', $result['errors'])
+                ));
+            }
+            break;
+
+        case 'mail:imap-test':
+            if (!ImapClient::isConfigured()) {
+                $err('IMAP is not configured (set IMAP_HOST).');
+                exit(1);
+            }
+            $client = new ImapClient();
+            $state = $client->connect((string) Config::get('mail.imap.intake_mailbox', 'INBOX'));
+            $client->logout();
+            $out('IMAP connected: ' . json_encode($state));
+            break;
+
+        case 'ticket:enrich':
+            $processor = new TicketService();
+            $count = 0;
+            foreach (\App\Models\Ticket::needingEnrichment(10) as $ticket) {
+                $processor->enrich($ticket, true);
+                $out('Enriched ' . $ticket->number() . ' (' . $ticket->target() . ')');
+                $count++;
+            }
+            $out($count === 0 ? 'Nothing to enrich.' : $count . ' ticket(s) enriched.');
+            break;
+
+        case 'prune':
+            $deleted = LoginCode::prune();
+            $out('Removed ' . $deleted . ' expired login code(s).');
+            break;
+
+        case 'status':
+            $db = databaseConnection();
+            $out('Database: ' . (string) Config::get('database.host') . '/' . (string) Config::get('database.name'));
+            $out('Tickets:  ' . (string) $db->fetchValue('SELECT COUNT(*) FROM tickets'));
+            $out('Admins:   ' . (string) $db->fetchValue('SELECT COUNT(*) FROM admins'));
+            $out('Inbound:  ' . (string) $db->fetchValue('SELECT COUNT(*) FROM inbound_messages'));
+            $out('IMAP:     ' . (ImapClient::isConfigured() ? 'configured' : 'disabled'));
+            break;
+
+        case 'help':
+        default:
+            $out('Abuse Report Desk console');
+            $out('');
+            $out('  php bin/console migrate [--fresh]     Apply database/schema.sql (--fresh drops everything first)');
+            $out('  php bin/console seed [email]          Create the bootstrap administrator');
+            $out('  php bin/console admin:add <email>     Add an administrator (no password, code-only login)');
+            $out('  php bin/console admin:list            List administrators');
+            $out('  php bin/console admin:disable <email> Disable an administrator');
+            $out('  php bin/console admin:enable <email>  Re-enable an administrator');
+            $out('  php bin/console mail:test <email>     Send a test message');
+            $out('  php bin/console mail:check            Pull both mailboxes now');
+            $out('  php bin/console mail:imap-test         Verify IMAP connectivity');
+            $out('  php bin/console ticket:enrich         Enrich pending tickets');
+            $out('  php bin/console prune                 Delete expired login codes');
+            $out('  php bin/console status                Show counters');
+            break;
+    }
+} catch (Throwable $e) {
+    $err('Error: ' . $e->getMessage());
+    if (Config::get('app.debug', false)) {
+        $err($e->getTraceAsString());
+    }
+    exit(1);
+}
+
+/**
+ * Connect with retries (docker-compose starts the database right before us).
+ */
+function databaseConnection(int $attempts = 30): Database
+{
+    $last = null;
+    for ($i = 1; $i <= $attempts; $i++) {
+        try {
+            $db = Database::instance();
+            $db->pdo();
+
+            return $db;
+        } catch (Throwable $e) {
+            $last = $e;
+            file_put_contents('php://stderr', sprintf("Waiting for the database (%d/%d)...\n", $i, $attempts));
+            sleep(2);
+        }
+    }
+
+    throw new RuntimeException('Database is unavailable: ' . ($last?->getMessage() ?? 'unknown error'));
+}
+
+function migrate(Database $db, bool $fresh, callable $out): void
+{
+    $schema = (string) file_get_contents(base_path('database/schema.sql'));
+    if ($schema === '') {
+        throw new RuntimeException('database/schema.sql is empty or missing.');
+    }
+
+    if ($fresh) {
+        $out('Dropping existing tables...');
+        $db->pdo()->exec('DROP TABLE IF EXISTS admin_login_codes, ticket_events, inbound_messages, outbound_reports, abuse_contacts, evidence, tickets, admins, system_state CASCADE');
+    }
+
+    $db->pdo()->exec($schema);
+    $out('Schema applied.');
+
+    if ($fresh) {
+        $admin = Admin::seedDefault();
+        if ($admin !== null) {
+            $out('Seeded administrator: ' . $admin->email());
+        }
+    }
+}
+
+function defaultMailRecipient(): string
+{
+    return (string) Config::get('app.reporter.email', '');
+}

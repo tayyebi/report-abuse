@@ -1,0 +1,114 @@
+# ---------------------------------------------------------------------------
+# Abuse Report Desk — full local stack
+#
+#   docker compose up -d --build
+#
+#   Web UI ............ http://localhost:8080
+#   Staff sign-in ..... http://localhost:8080/admin  (one-time code by e-mail)
+#   Mailpit (SMTP/IMAP/webmail)  http://localhost:8025 · SMTP 1025 · IMAP 1143
+#
+# Every admin sign-in is passwordless: the app mails a one-time code. With the
+# mailpit service below the code arrives at http://localhost:8025.
+# ---------------------------------------------------------------------------
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: abuse-report-desk:latest
+    container_name: abuse-desk-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    environment:
+      APP_NAME: "${APP_NAME:-Abuse Report Desk}"
+      APP_URL: "${APP_URL:-http://localhost:8080}"
+      APP_TIMEZONE: "${APP_TIMEZONE:-UTC}"
+      APP_DEBUG: "${APP_DEBUG:-false}"
+      APP_KEY: "${APP_KEY:-dev-only-insecure-key-change-me}"
+
+      # Database (matches the db service below)
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: "${POSTGRES_DB:-abuse_desk}"
+      DB_USER: "${POSTGRES_USER:-abuse}"
+      DB_PASSWORD: "${POSTGRES_PASSWORD:-abuse}"
+      DB_SSLMODE: prefer
+
+      # First administrator — passwordless, code-only sign-in
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-tayyebimohammadreza@gmail.com}"
+
+      # Outgoing mail → mailpit
+      MAIL_TRANSPORT: smtp
+      MAIL_FROM: "${MAIL_FROM:-abuse@abuse-desk.local}"
+      MAIL_FROM_NAME: "${APP_NAME:-Abuse Report Desk}"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_ENCRYPTION: none
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+
+      # Inbound mail → mailpit (any credentials are accepted in dev)
+      IMAP_HOST: mailpit
+      IMAP_PORT: "1143"
+      IMAP_ENCRYPTION: none
+      IMAP_USER: abuse
+      IMAP_PASSWORD: abuse
+      IMAP_INTAKE_MAILBOX: INBOX
+      IMAP_RESPONSE_MAILBOX: INBOX
+      IMAP_CHECK_INTERVAL: "300"
+
+      REPORT_REPORTER_ORG: "${APP_NAME:-Abuse Report Desk}"
+      REPORT_REPORTER_DOMAIN: "${REPORT_REPORTER_DOMAIN:-abuse-desk.local}"
+      REPORT_REPORTER_EMAIL: "${REPORT_REPORTER_EMAIL:-abuse@abuse-desk.local}"
+      REPORT_DEFAULT_FORMAT: "${REPORT_DEFAULT_FORMAT:-arf}"
+    volumes:
+      # Uploads, outbox and logs survive container rebuilds.
+      - abuse-storage:/var/www/html/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1/') === false ? 1 : 0);"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  db:
+    image: postgres:16-alpine
+    container_name: abuse-desk-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-abuse_desk}"
+      POSTGRES_USER: "${POSTGRES_USER:-abuse}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-abuse}"
+      TZ: UTC
+    volumes:
+      - abuse-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-abuse} -d ${POSTGRES_DB:-abuse_desk}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: abuse-desk-mail
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+      MP_MAX_MESSAGES: "1000"
+    ports:
+      # Web UI: read verification codes and incoming replies here.
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      # SMTP (app → mailpit) and IMAP (mailpit → app)
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_IMAP_PORT:-1143}:1143"
+
+volumes:
+  abuse-db:
+  abuse-storage:

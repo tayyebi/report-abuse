@@ -1,0 +1,61 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    name: Unit tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_pgsql, mbstring, fileinfo
+          coverage: none
+      - name: Run unit suite
+        run: php tests/run.php
+
+  integration:
+    name: Integration tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: abuse_desk_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_NAME: abuse_desk_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_SSLMODE: prefer
+      APP_DEBUG: 'true'
+      APP_URL: http://localhost:8080
+      ADMIN_EMAIL: tayyebimohammadreza@gmail.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_pgsql, mbstring, fileinfo
+          coverage: none
+      - name: Run integration suite
+        run: php tests/integration.php
